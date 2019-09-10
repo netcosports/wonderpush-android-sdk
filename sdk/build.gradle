@@ -1,8 +1,7 @@
 apply plugin: 'com.android.library'
 apply plugin: 'com.jfrog.bintray'
 
-project.group = 'com.wonderpush'
-project.archivesBaseName = 'wonderpush-android-sdk'
+project.group = 'com.netcosports.wonderpush'
 
 android {
     compileSdkVersion 28
@@ -49,11 +48,9 @@ tasks.withType(JavaCompile) {
     options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation" << "-Xdiags:verbose"
 }
 
-apply plugin: 'maven'
-apply plugin: 'signing'
-apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.artifactory'
+apply plugin: 'maven-publish'
 
-def isSnapshot = version.endsWith('-SNAPSHOT')
 task setVersion {
     // The version will be derived from source
     project.version = null
@@ -69,115 +66,63 @@ task setVersion {
     }
 }
 
-install {
-    repositories.mavenInstaller {
-        pom.project {
-            packaging 'aar'
+publishing {
+    publications {
+        aar(MavenPublication) {
             groupId = project.group
-            artifactId = 'wonderpush-android-sdk'
+            artifactId "wonderpush-android-sdk"
 
-            name 'WonderPush Android SDK'
-            description 'WonderPush Android SDK'
-            url 'https://github.com/wonderpush/wonderpush-android-sdk'
+            // Tell maven to prepare the generated "*.aar" file for publishing
+            artifact("$buildDir/outputs/aar/${project.getName()}-release.aar")
+            artifact androidSourcesJar
 
-            scm {
-                connection 'scm:git@github.com:wonderpush/wonderpush-android-sdk.git'
-                developerConnection 'scm:git@github.com:wonderpush/wonderpush-android-sdk.git'
-                url 'https://github.com/wonderpush/wonderpush-android-sdk'
+            def result = new HashMap<String, Dependency>()
+            configurations.api.allDependencies.each {
+                result[it.group + '_' + it.name + '_' + it.version] = it
+            }
+            configurations.implementation.allDependencies.each {
+                result[it.group + '_' + it.name + '_' + it.version] = it
             }
 
-            licenses {
-                license {
-                    name 'Apache 2.0'
-                    url 'https://github.com/wonderpush/wonderpush-android-sdk/blob/master/LICENSE.txt'
-                    distribution 'repo'
-                }
-            }
+            pom.withXml {
+                def dependencies = asNode().appendNode('dependencies')
 
-            developers {
-                developer {
-                    id 'wonderpush'
-                    name 'WonderPush'
-                }
-            }
-        }
-    }
-}
-
-uploadArchives {
-    repositories.mavenDeployer {
-        beforeDeployment {
-            MavenDeployment deployment -> signing.signPom(deployment)
-        }
-
-        pom.project {
-            packaging 'aar'
-            groupId = project.group
-            artifactId = 'wonderpush-android-sdk'
-
-            name 'WonderPush Android SDK'
-            description 'WonderPush Android SDK'
-            url 'https://github.com/wonderpush/wonderpush-android-sdk'
-
-            scm {
-                connection 'scm:git@github.com:wonderpush/wonderpush-android-sdk.git'
-                developerConnection 'scm:git@github.com:wonderpush/wonderpush-android-sdk.git'
-                url 'https://github.com/wonderpush/wonderpush-android-sdk'
-            }
-
-            licenses {
-                license {
-                    name 'Apache 2.0'
-                    url 'https://github.com/wonderpush/wonderpush-android-sdk/blob/master/LICENSE.txt'
-                    distribution 'repo'
-                }
-            }
-
-            developers {
-                developer {
-                    id 'wonderpush'
-                    name 'WonderPush'
+                result.values().each {
+                    def dependencyNode = dependencies.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', it.group)
+                    dependencyNode.appendNode('artifactId', it.name)
+                    dependencyNode.appendNode('version', it.version)
                 }
             }
         }
     }
 }
-uploadArchives.dependsOn(install)
 
-signing {
-    required { !isSnapshot && gradle.taskGraph.hasTask("uploadArchives") }
-    sign configurations.archives
-}
 
-task androidJavadocs(type: Javadoc) {
-    title = 'WonderPush Android SDK Reference'
-    source = 'src/main/java/com/wonderpush/sdk' //android.sourceSets.main.java.srcDirs
-    doFirst {
-        classpath = project.files(
-                project.android.libraryVariants.toList().first().javaCompileProvider.get().classpath.files,
-                project.android.getBootClasspath(),
-                android.sourceSets.main.java.srcDirs
-        )
+artifactory {
+    contextUrl = 'http://artifactory-blr.netcodev.com/artifactory'
+    publish {
+        repository {
+            // The Artifactory repository key to publish to
+            repoKey = 'libs-release-local'
+
+            username = repoUsername
+            password = repoPassword
+        }
+        defaults {
+            // Tell the Artifactory Plugin which artifacts should be published to Artifactory.
+            publications('aar')
+            publishArtifacts = true
+
+            // Properties to be attached to the published artifacts.
+//            properties = ['qa.level': 'basic', 'dev.team': 'core']
+            // Publish generated POM files to Artifactory (true by default)
+            publishPom = true
+        }
     }
-    options.overview = project.rootDir.path + '/overview.html'
-    options.showFromPublic()
-    // JDK 1.8 is more strict then 1.7. Have JDK 1.8 behave like 1.7 for javadoc generation
-    if (org.gradle.internal.jvm.Jvm.current().getJavaVersion() == JavaVersion.VERSION_1_8) {
-        options.addStringOption('Xdoclint:none', '-quiet')
-    }
-}
-
-task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
-    classifier = 'javadoc'
-    from androidJavadocs.destinationDir
 }
 
 task androidSourcesJar(type: Jar) {
     classifier = 'sources'
     from android.sourceSets.main.java.sourceFiles
-}
-
-artifacts {
-    archives androidSourcesJar
-    archives androidJavadocsJar
 }
