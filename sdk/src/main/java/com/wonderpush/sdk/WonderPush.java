@@ -563,60 +563,7 @@ public class WonderPush {
      * or null if permission was not given.
      */
     protected static Location getLocation() {
-        Context applicationContext = getApplicationContext();
-
-        if (applicationContext == null)
-            return null;
-
-        LocationManager locationManager = (LocationManager) applicationContext.getSystemService(Context.LOCATION_SERVICE);
-        try {
-            Location best = null;
-            for (String provider : locationManager.getAllProviders()) {
-                Location location;
-                try {
-                    location = locationManager.getLastKnownLocation(provider);
-                } catch (SecurityException ex) {
-                    continue;
-                }
-                // If this location is null, discard
-                if (null == location) {
-                    continue;
-                }
-
-                // If no, broken or poor accuracy, discard
-                if (location.getAccuracy() <= 0 || location.getAccuracy() >= 10000) {
-                    continue;
-                }
-
-                // Skip locations old enough to belong to an older session
-                if (location.getTime() < System.currentTimeMillis() - WonderPush.DIFFERENT_SESSION_REGULAR_MIN_TIME_GAP) {
-                    continue;
-                }
-
-                // If we have no best yet, use this first location
-                if (null == best) {
-                    best = location;
-                    continue;
-                }
-
-                // If this location is more than 2 minutes older than the current best, discard
-                if (location.getTime() < best.getTime() - 2 * 60 * 1000) {
-                    continue;
-                }
-
-                // If this location is less precise (ie. has a *larger* accuracy radius), discard
-                if (location.getAccuracy() > best.getAccuracy()) {
-                    continue;
-                }
-
-                best = location;
-            }
-
-            return best;
-        } catch (java.lang.SecurityException e) {
-            // Missing permission;
-            return null;
-        }
+        return null;
     }
 
     /**
@@ -1882,32 +1829,7 @@ public class WonderPush {
      * @throws IllegalStateException when called from the UI thread
      */
     protected static AtomicReference<String> getFederatedIdAlreadyInBackground() throws IllegalStateException {
-        // Note: We use an AtomicReference instead of an Optional<String> to preserve SDK pre-24 compatibility
-        AdvertisingIdClient.Info adInfo = null;
-        try {
-            adInfo = AdvertisingIdClient.getAdvertisingIdInfo(sApplicationContext);
-        } catch (IOException e) {
-            // Unrecoverable error connecting to Google Play services (e.g.,
-            // the old version of the service doesn't support getting AdvertisingId).
-            Log.e(TAG, "Unexpected error while getting AdvertisingIdInfo", e);
-        } catch (GooglePlayServicesRepairableException e) {
-            // Encountered a recoverable error connecting to Google Play services.
-            Log.e(TAG, "Unexpected error while getting AdvertisingIdInfo", e);
-        } catch (GooglePlayServicesNotAvailableException e) {
-            // Google Play services is not available entirely.
-            Log.e(TAG, "Unexpected error while getting AdvertisingIdInfo", e);
-        } catch (NoClassDefFoundError e) {
-            Log.i(TAG, "AdvertisingIdClient is not available, cannot read AdvertisingId");
-            return null;
-        }
-        if (adInfo == null) {
-            return null;
-        }
-        WonderPush.logDebug("AdvertisingId: id=" + adInfo.getId() + " limitedAdTracking=" + adInfo.isLimitAdTrackingEnabled());
-        if (adInfo.isLimitAdTrackingEnabled()) {
-            return new AtomicReference<>(null);
-        }
-        return new AtomicReference<>(adInfo.getId());
+        return null;
     }
 
     /**
